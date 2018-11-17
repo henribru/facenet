@@ -116,12 +116,19 @@ def main(args):
                             for i, det in enumerate(det_arr):
                                 det = np.squeeze(det)
                                 bb = np.zeros(4, dtype=np.int32)
-                                bb[0] = np.maximum(det[0]-args.margin/2, 0)
-                                bb[1] = np.maximum(det[1]-args.margin/2, 0)
-                                bb[2] = np.minimum(det[2]+args.margin/2, img_size[1])
-                                bb[3] = np.minimum(det[3]+args.margin/2, img_size[0])
+                                bb[0] = np.maximum(det[0]*(1-args.margin/2), 0)
+                                bb[1] = np.maximum(det[1]*(1-args.margin/2), 0)
+                                bb[2] = np.minimum(det[2]*(1+args.margin/2), img_size[1])
+                                bb[3] = np.minimum(det[3]*(1+args.margin/2), img_size[0])
                                 cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
-                                scaled = misc.imresize(cropped, (args.image_size, args.image_size), interp='bilinear')
+                                new_size = list(cropped.shape[0:2])
+                                if cropped.shape[0] > cropped.shape[1]:
+                                    new_size[0] = int(args.image_size * cropped.shape[0] / cropped.shape[1])
+                                    new_size[1] = args.image_size
+                                else:
+                                    new_size[0] = args.image_size
+                                    new_size[1] = int(args.image_size * cropped.shape[1] / cropped.shape[0])
+                                scaled = misc.imresize(cropped, new_size, interp='bilinear')
                                 nrof_successfully_aligned += 1
                                 filename_base, file_extension = os.path.splitext(output_filename)
                                 if args.detect_multiple_faces:
@@ -133,20 +140,20 @@ def main(args):
                         else:
                             print('Unable to align "%s"' % image_path)
                             text_file.write('%s\n' % (output_filename))
-                            
+
     print('Total number of images: %d' % nrof_images_total)
     print('Number of successfully aligned images: %d' % nrof_successfully_aligned)
-            
+
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument('input_dir', type=str, help='Directory with unaligned images.')
     parser.add_argument('output_dir', type=str, help='Directory with aligned face thumbnails.')
     parser.add_argument('--image_size', type=int,
         help='Image size (height, width) in pixels.', default=182)
-    parser.add_argument('--margin', type=int,
-        help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
+    parser.add_argument('--margin', type=float,
+        help='Margin for the crop around the bounding box (height, width) in percentage.', default=0.3)
     parser.add_argument('--random_order', 
         help='Shuffles the order of images to enable alignment using multiple processes.', action='store_true')
     parser.add_argument('--gpu_memory_fraction', type=float,
